@@ -1,20 +1,29 @@
 
 import json
+import logging
 import re
 import subprocess
 import time
+from contextlib import asynccontextmanager
+from threading import Event, Thread
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, Response
 from mpd import MPDClient
 
 
-app = FastAPI(title="Apple Music Bridge", version="0.4.0")
+VERSION = "0.8.0"
 
 MPD_HOST = "raspberrypi.local"
 MPD_PORT = 6600
 
+PI_SSH_HOST = "pi@raspberrypi.local"
+
 AIRPLAY_CACHE_TTL = 5
+FRAME_UPDATE_INTERVAL = 1.0
+FRAME_RECHECK_SECONDS = 30
+
+logger = logging.getLogger("apple-music-bridge")
 
 airplay_cache = {
     "data": None,
@@ -22,11 +31,88 @@ airplay_cache = {
 }
 
 
+def run_pi_command(command, *, text=True):
+    """Run a command on the Pi without changing its configuration."""
+    return subprocess.run(
+        [
+            "ssh",
+            "-o", "BatchMode=yes",
+            "-o", "ConnectTimeout=3",
+            PI_SSH_HOST,
+            command,
+        ],
+        capture_output=True,
+        text=text,
+        timeout=5,
+        check=True,
+    )
+
+
+def enable_frame_updates():
+    """Request live frame-position updates from Shairport Sync."""
+    command = (
+        "busctl --system call "
+        "org.gnome.ShairportSync "
+        "/org/gnome/ShairportSync "
+        "org.gnome.ShairportSync "
+        "SetFramePositionUpdateInterval "
+        f"d {FRAME_UPDATE_INTERVAL}"
+    )
+
+    try:
+        run_pi_command(command)
+        logger.info(
+            "Shairport Sync frame updates enabled: %.1fs",
+            FRAME_UPDATE_INTERVAL,
+        )
+        return True
+
+    except (subprocess.SubprocessError, OSError) as exc:
+        logger.warning(
+            "Could not initialise Shairport Sync frame updates: %s",
+            exc,
+        )
+        return False
+
+
+def maintain_frame_updates(stop_event):
+    """Reapply the runtime setting after possible Shairport restarts."""
+    while not stop_event.is_set():
+        enable_frame_updates()
+        stop_event.wait(FRAME_RECHECK_SECONDS)
+
+
+@asynccontextmanager
+async def lifespan(app):
+    stop_event = Event()
+
+    worker = Thread(
+        target=maintain_frame_updates,
+        args=(stop_event,),
+        name="shairport-frame-updates",
+        daemon=True,
+    )
+    worker.start()
+
+    try:
+        yield
+    finally:
+        stop_event.set()
+        worker.join(timeout=6)
+
+
+app = FastAPI(
+    title="Apple Music Bridge",
+    version=VERSION,
+    lifespan=lifespan,
+)
+
+
 @app.get("/")
 def home():
     return {
         "name": "Apple Music Bridge",
-        "version": "0.4.0",
+        "version": VERSION,
         "status": "running",
     }
 
@@ -44,7 +130,6 @@ def get_playback_state(playstate):
 def airplay():
     now = time.monotonic()
 
-    # Return fresh cached metadata
     if (
         airplay_cache["data"] is not None
         and now - airplay_cache["timestamp"] < AIRPLAY_CACHE_TTL
@@ -52,21 +137,10 @@ def airplay():
         return airplay_cache["data"]
 
     try:
-        result = subprocess.run(
-            [
-                "ssh",
-                "-o", "BatchMode=yes",
-                "-o", "ConnectTimeout=3",
-                "pi@raspberrypi.local",
-                "cat /var/local/www/aplmeta.json",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=True,
+        result = run_pi_command(
+            "cat /var/local/www/aplmeta.json"
         )
 
-        # An empty file means AirPlay has disconnected
         if not result.stdout.strip():
             data = {
                 "renderer": "AirPlay",
@@ -84,7 +158,6 @@ def airplay():
             }
         else:
             metadata = json.loads(result.stdout)
-
             playstate = metadata.get("playstate")
 
             data = {
@@ -102,14 +175,12 @@ def airplay():
                 "source": "moode-airplay",
             }
 
-        # Cache both connected and disconnected states
         airplay_cache["data"] = data
         airplay_cache["timestamp"] = time.monotonic()
 
         return data
 
     except (subprocess.SubprocessError, ValueError, OSError) as exc:
-        # Do not mistake an SSH or JSON error for disconnection
         return {
             "renderer": "AirPlay",
             "connected": False,
@@ -122,7 +193,6 @@ def airplay():
 
 @app.get("/api/artwork")
 def artwork():
-    # Reuse the AirPlay metadata cache
     player = airplay()
 
     if not player.get("connected"):
@@ -139,7 +209,6 @@ def artwork():
             detail="No album artwork",
         )
 
-    # Accept only moOde AirPlay artwork filenames
     if not re.fullmatch(
         r"imagesw/airplay-covers/cover-[a-zA-Z0-9_-]+\.jpg",
         cover_url,
@@ -152,17 +221,9 @@ def artwork():
     remote_path = f"/var/local/www/{cover_url}"
 
     try:
-        result = subprocess.run(
-            [
-                "ssh",
-                "-o", "BatchMode=yes",
-                "-o", "ConnectTimeout=3",
-                "pi@raspberrypi.local",
-                f"cat {remote_path}",
-            ],
-            capture_output=True,
-            timeout=5,
-            check=True,
+        result = run_pi_command(
+            f"cat {remote_path}",
+            text=False,
         )
 
         return Response(
@@ -242,19 +303,7 @@ busctl --system get-property \
   org.gnome.ShairportSync FramePosition
 """
 
-    result = subprocess.run(
-        [
-            "ssh",
-            "-o", "BatchMode=yes",
-            "-o", "ConnectTimeout=3",
-            "pi@raspberrypi.local",
-            script,
-        ],
-        capture_output=True,
-        text=True,
-        timeout=5,
-        check=True,
-    )
+    result = run_pi_command(script)
 
     values = re.findall(r's "([^"]*)"', result.stdout)
 
@@ -273,32 +322,32 @@ busctl --system get-property \
     return start, current, end
 
 
+
 @app.get("/api/progress")
 def progress():
     try:
         start, current, end = read_airplay_timing()
 
-        if end <= start:
+        # Shairport Sync uses wrapping 32-bit frame counters.
+        frame_modulus = 2**32
+
+        total_frames = (end - start) % frame_modulus
+        elapsed_frames = (current - start) % frame_modulus
+
+        if total_frames == 0:
             raise ValueError("Invalid track frame range")
 
-        # The current frame must belong to the reported track.
-        if not start <= current <= end:
+        if elapsed_frames > total_frames:
             return {
                 "available": False,
                 "reason": "Frame position outside track range",
             }
 
-        total_frames = end - start
-        elapsed_frames = current - start
         fraction = elapsed_frames / total_frames
 
         metadata = airplay()
-
-        # moOde supplies duration as a string, e.g. "200265".
         duration_ms = int(metadata.get("duration_ms") or 0)
 
-        # Allow progress for both playing and paused tracks.
-        # Shairport Sync freezes FramePosition when paused.
         if (
             not metadata.get("connected")
             or metadata.get("state") not in ("playing", "paused")
