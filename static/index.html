@@ -76,6 +76,36 @@
       font-weight: 500;
     }
 
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .fullscreen-button {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border: 1px solid #ffffff26;
+      border-radius: 50%;
+      background: #ffffff0c;
+      color: #f9f7fa;
+      cursor: pointer;
+      flex-shrink: 0;
+      font-size: 1.2rem;
+    }
+
+    .fullscreen-button:hover {
+      background: #ffffff24;
+    }
+
+    .fullscreen-button:focus-visible {
+      outline: 2px solid #ff879b;
+      outline-offset: 3px;
+    }
+
     .playback-status {
       display: inline-flex;
       align-items: center;
@@ -359,13 +389,22 @@
         <span>AirPlay | Now Playing</span>
       </div>
 
-      <span
-        id="playback"
-        class="playback-status"
-        role="status"
-      >
-        Loading...
-      </span>
+      <div class="header-actions">
+        <span
+          id="playback"
+          class="playback-status"
+          role="status"
+        >
+          Loading...
+        </span>
+        <button
+          id="fullscreen-button"
+          class="fullscreen-button"
+          type="button"
+          aria-label="Enter full screen"
+          title="Enter full screen"
+        >⛶</button>
+      </div>
     </header>
 
     <section class="player" aria-label="Now playing">
@@ -433,7 +472,7 @@
     </section>
 
     <p class="footer">
-      Prototype v0.8 | moOde AirPlay metadata | Read-only
+      Prototype v0.9 | moOde AirPlay metadata | Read-only
     </p>
   </main>
 
@@ -752,6 +791,30 @@
     requestAnimationFrame(animateProgress);
     updatePlayer();
     setInterval(updatePlayer, 3000);
+
+    // v0.9: Full-screen control. Playback logic above is unchanged.
+    const fullscreenButton = document.getElementById('fullscreen-button');
+
+    fullscreenButton.addEventListener('click', async () => {
+      try {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen();
+        } else {
+          await document.documentElement.requestFullscreen();
+        }
+      } catch (error) {
+        console.error('Full-screen request failed:', error);
+      }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+      const active = Boolean(document.fullscreenElement);
+      fullscreenButton.textContent = active ? '⤢' : '⛶';
+      fullscreenButton.setAttribute(
+        'aria-label', active ? 'Exit full screen' : 'Enter full screen'
+      );
+      fullscreenButton.title = active ? 'Exit full screen' : 'Enter full screen';
+    });
   </script>
 </body>
 </html>
