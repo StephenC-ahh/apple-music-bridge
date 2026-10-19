@@ -38,6 +38,36 @@
       font-weight: bold;
     }
 
+    .playback-status {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: bold;
+      background: #444;
+      color: #ddd;
+    }
+
+    .playing {
+      background: #173d2b;
+      color: #6ee7a0;
+    }
+
+    .paused {
+      background: #493916;
+      color: #f5cb70;
+    }
+
+    .disconnected {
+      background: #383838;
+      color: #aaa;
+    }
+
+    .unavailable {
+      background: #4b2020;
+      color: #ff9a9a;
+    }
+
     .artwork {
       display: none;
       width: 100%;
@@ -45,11 +75,12 @@
       aspect-ratio: 1 / 1;
       object-fit: cover;
       border-radius: 12px;
-      margin: 20px auto;
+      margin: 24px auto;
     }
 
     .track-info {
       text-align: center;
+      margin-top: 20px;
     }
 
     .track-title {
@@ -83,8 +114,10 @@
     <h2>AirPlay</h2>
 
     <p>
-      Connection:
-      <span id="connection" class="value">Loading...</span>
+      Playback:
+      <span id="playback" class="playback-status">
+        Loading...
+      </span>
     </p>
 
     <img
@@ -94,17 +127,15 @@
     >
 
     <div class="track-info">
-      <div class="track-title" id="track">Loading...</div>
+      <div class="track-title" id="track">
+        Loading...
+      </div>
+
       <div class="artist" id="artist"></div>
       <p class="muted" id="album"></p>
     </div>
 
     <div class="details">
-      <p>
-        Last playback event:
-        <span id="state" class="value">Unknown</span>
-      </p>
-
       <p>
         Duration:
         <span id="duration" class="value">Unknown</span>
@@ -122,7 +153,7 @@
     </div>
 
     <p class="muted footer">
-      Prototype v0.3 | moOde AirPlay metadata
+      Prototype v0.4 | moOde AirPlay metadata
     </p>
   </div>
 
@@ -141,6 +172,41 @@
       return `${minutes}:${String(remainder).padStart(2, '0')}`;
     }
 
+    function setPlaybackStatus(state) {
+      const playback = document.getElementById('playback');
+
+      const labels = {
+        playing: 'Playing',
+        paused: 'Paused',
+        disconnected: 'Disconnected',
+        unavailable: 'Unavailable',
+        unknown: 'Unknown'
+      };
+
+      playback.textContent = labels[state] ?? 'Unknown';
+      playback.className = 'playback-status ' + (
+        labels[state] ? state : 'unknown'
+      );
+    }
+
+    function clearTrack() {
+      const artwork = document.getElementById('artwork');
+
+      artwork.style.display = 'none';
+      artwork.removeAttribute('src');
+      delete artwork.dataset.cover;
+
+      document.getElementById('track').textContent =
+        'No AirPlay connection';
+
+      document.getElementById('artist').textContent = '';
+      document.getElementById('album').textContent = '';
+
+      document.getElementById('duration').textContent = 'Unknown';
+      document.getElementById('source-format').textContent = 'Unknown';
+      document.getElementById('output-format').textContent = 'Unknown';
+    }
+
     async function updatePlayer() {
       try {
         const response = await fetch('/api/airplay');
@@ -151,10 +217,25 @@
 
         const player = await response.json();
 
-        // Album artwork
+        // Display the playback state
+        setPlaybackStatus(player.state);
+
+        // Handle disconnection and API errors
+        if (!player.connected) {
+          clearTrack();
+
+          if (player.state === 'unavailable') {
+            document.getElementById('track').textContent =
+              'AirPlay metadata unavailable';
+          }
+
+          return;
+        }
+
+        // Update album artwork only when it changes
         const artwork = document.getElementById('artwork');
 
-        if (player.connected && player.cover_url) {
+        if (player.cover_url) {
           if (artwork.dataset.cover !== player.cover_url) {
             artwork.src =
               `/api/artwork?cover=${encodeURIComponent(player.cover_url)}`;
@@ -169,10 +250,6 @@
           delete artwork.dataset.cover;
         }
 
-        // Connection
-        document.getElementById('connection').textContent =
-          player.connected ? 'Metadata available' : 'Unavailable';
-
         // Track information
         document.getElementById('track').textContent =
           player.title ?? 'No track information';
@@ -183,10 +260,7 @@
         document.getElementById('album').textContent =
           player.album ?? '';
 
-        // Playback metadata
-        document.getElementById('state').textContent =
-          player.playstate ?? 'Unknown';
-
+        // Audio information
         document.getElementById('duration').textContent =
           formatDuration(player.duration_ms);
 
@@ -197,10 +271,13 @@
           player.output_format ?? 'Unknown';
 
       } catch (error) {
-        document.getElementById('connection').textContent =
-          'API unavailable';
+        setPlaybackStatus('unavailable');
+        clearTrack();
 
-        console.error('Failed to retrieve AirPlay metadata:', error);
+        document.getElementById('track').textContent =
+          'Cannot reach Apple Music Bridge';
+
+        console.error('AirPlay update failed:', error);
       }
     }
 
