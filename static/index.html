@@ -1,248 +1,175 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Apple Music Bridge</title>
-
   <style>
-    body {
-      background: #121212;
-      color: #f5f5f5;
-      font-family: system-ui, sans-serif;
-      max-width: 600px;
-      margin: 60px auto;
-      padding: 20px;
-    }
-
-    .panel {
-      background: #222;
-      border-radius: 16px;
-      padding: 24px;
-    }
-
-    h1 {
-      color: #fa5266;
-    }
-
-    h2 {
-      margin-top: 0;
-    }
-
-    .muted {
-      color: #aaa;
-    }
-
-    .value {
-      font-weight: bold;
-    }
-
-    .playback-status {
-      display: inline-block;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 0.9rem;
-      font-weight: bold;
-      background: #444;
-      color: #ddd;
-    }
-
-    .playing {
-      background: #173d2b;
-      color: #6ee7a0;
-    }
-
-    .paused {
-      background: #493916;
-      color: #f5cb70;
-    }
-
-    .disconnected {
-      background: #383838;
-      color: #aaa;
-    }
-
-    .unavailable {
-      background: #4b2020;
-      color: #ff9a9a;
-    }
-
-    .artwork {
-      display: none;
-      width: 100%;
-      max-width: 320px;
-      aspect-ratio: 1 / 1;
-      object-fit: cover;
-      border-radius: 12px;
-      margin: 24px auto;
-    }
-
-    .track-info {
-      text-align: center;
-      margin-top: 20px;
-    }
-
-    .track-title {
-      font-size: 1.6rem;
-      font-weight: bold;
-      margin-bottom: 6px;
-    }
-
-    .artist {
-      font-size: 1.2rem;
-      margin-bottom: 4px;
-    }
-
-    .details {
-      border-top: 1px solid #444;
-      margin-top: 24px;
-      padding-top: 12px;
-    }
-
-    .footer {
-      margin-top: 24px;
-      font-size: 0.85rem;
-    }
+    body { background: #121212; color: #f5f5f5; font-family: system-ui, sans-serif; max-width: 600px; margin: 60px auto; padding: 20px; }
+    .panel { background: #222; border-radius: 16px; padding: 24px; }
+    h1 { color: #fa5266; }
+    h2 { margin-top: 0; }
+    .muted { color: #aaa; }
+    .value { font-weight: bold; }
+    .playback-status { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 0.9rem; font-weight: bold; background: #444; color: #ddd; }
+    .playing { background: #173d2b; color: #6ee7a0; }
+    .paused { background: #493916; color: #f5cb70; }
+    .disconnected { background: #383838; color: #aaa; }
+    .unavailable { background: #4b2020; color: #ff9a9a; }
+    .artwork { display: none; width: 100%; max-width: 320px; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 12px; margin: 24px auto; }
+    .track-info { text-align: center; margin-top: 20px; }
+    .track-title { font-size: 1.6rem; font-weight: bold; margin-bottom: 6px; }
+    .artist { font-size: 1.2rem; margin-bottom: 4px; }
+    .progress-section { display: none; margin-top: 24px; }
+    .progress-track { height: 8px; background: #444; border-radius: 999px; overflow: hidden; }
+    .progress-fill { height: 100%; width: 0%; background: #fa5266; border-radius: 999px; }
+    .progress-times { display: flex; justify-content: space-between; margin-top: 8px; color: #aaa; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+    .details { border-top: 1px solid #444; margin-top: 24px; padding-top: 12px; }
+    .footer { margin-top: 24px; font-size: 0.85rem; }
   </style>
 </head>
-
 <body>
   <h1>Apple Music Bridge</h1>
-
   <div class="panel">
     <h2>AirPlay</h2>
-
-    <p>
-      Playback:
-      <span id="playback" class="playback-status">
-        Loading...
-      </span>
-    </p>
-
-    <img
-      id="artwork"
-      class="artwork"
-      alt="Album artwork"
-    >
-
+    <p>Playback: <span id="playback" class="playback-status">Loading...</span></p>
+    <img id="artwork" class="artwork" alt="Album artwork">
     <div class="track-info">
-      <div class="track-title" id="track">
-        Loading...
-      </div>
-
+      <div class="track-title" id="track">Loading...</div>
       <div class="artist" id="artist"></div>
       <p class="muted" id="album"></p>
     </div>
-
-    <div class="details">
-      <p>
-        Duration:
-        <span id="duration" class="value">Unknown</span>
-      </p>
-
-      <p>
-        Source:
-        <span id="source-format" class="value">Unknown</span>
-      </p>
-
-      <p>
-        Output:
-        <span id="output-format" class="value">Unknown</span>
-      </p>
+    <div id="progress-section" class="progress-section" role="group" aria-label="Playback progress">
+      <div id="progress-track" class="progress-track" role="progressbar" aria-label="Track progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div id="progress-fill" class="progress-fill"></div>
+      </div>
+      <div class="progress-times">
+        <span id="elapsed-time">0:00</span>
+        <span id="total-time">0:00</span>
+      </div>
     </div>
-
-    <p class="muted footer">
-      Prototype v0.4 | moOde AirPlay metadata
-    </p>
+    <div class="details">
+      <p>Duration: <span id="duration" class="value">Unknown</span></p>
+      <p>Source: <span id="source-format" class="value">Unknown</span></p>
+      <p>Output: <span id="output-format" class="value">Unknown</span></p>
+    </div>
+    <p class="muted footer">Prototype v0.6 | moOde AirPlay metadata</p>
   </div>
-
   <script>
     function formatDuration(milliseconds) {
       const value = Number(milliseconds);
-
-      if (!Number.isFinite(value) || value <= 0) {
-        return 'Unknown';
-      }
-
+      if (!Number.isFinite(value) || value < 0) return 'Unknown';
       const seconds = Math.floor(value / 1000);
-      const minutes = Math.floor(seconds / 60);
-      const remainder = seconds % 60;
-
-      return `${minutes}:${String(remainder).padStart(2, '0')}`;
+      return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
     }
 
     function setPlaybackStatus(state) {
       const playback = document.getElementById('playback');
-
       const labels = {
-        playing: 'Playing',
-        paused: 'Paused',
-        disconnected: 'Disconnected',
-        unavailable: 'Unavailable',
-        unknown: 'Unknown'
+        playing: 'Playing', paused: 'Paused', disconnected: 'Disconnected',
+        unavailable: 'Unavailable', unknown: 'Unknown'
       };
-
       playback.textContent = labels[state] ?? 'Unknown';
-      playback.className = 'playback-status ' + (
-        labels[state] ? state : 'unknown'
-      );
+      playback.className = 'playback-status ' + (labels[state] ? state : 'unknown');
+    }
+
+    let currentTrackKey = null;
+    let playbackState = 'unknown';
+    let progressPositionMs = null;
+    let progressDurationMs = 0;
+    let progressClockMs = null;
+    let updating = false;
+
+    function clearProgress() {
+      progressPositionMs = null;
+      progressDurationMs = 0;
+      progressClockMs = null;
+      document.getElementById('progress-section').style.display = 'none';
+      document.getElementById('progress-fill').style.width = '0%';
+      document.getElementById('elapsed-time').textContent = '0:00';
+      document.getElementById('total-time').textContent = '0:00';
+      document.getElementById('progress-track').setAttribute('aria-valuenow', '0');
+    }
+
+    function drawProgress() {
+      if (progressPositionMs === null || progressDurationMs <= 0) return;
+      const elapsed = Math.max(0, Math.min(progressPositionMs, progressDurationMs));
+      const percent = (elapsed / progressDurationMs) * 100;
+      document.getElementById('progress-section').style.display = 'block';
+      document.getElementById('progress-fill').style.width = `${percent}%`;
+      document.getElementById('elapsed-time').textContent = formatDuration(elapsed);
+      document.getElementById('total-time').textContent = formatDuration(progressDurationMs);
+      document.getElementById('progress-track').setAttribute('aria-valuenow', percent.toFixed(1));
+    }
+
+    function animateProgress(now) {
+      if (progressClockMs !== null && progressPositionMs !== null && playbackState === 'playing') {
+        const delta = Math.max(0, Math.min(now - progressClockMs, 1000));
+        progressPositionMs = Math.min(progressDurationMs, progressPositionMs + delta);
+        drawProgress();
+      }
+      progressClockMs = now;
+      requestAnimationFrame(animateProgress);
+    }
+
+    function freezeProgress() {
+      // Keep the last position visible, but never advance it offline.
+      progressClockMs = null;
     }
 
     function clearTrack() {
       const artwork = document.getElementById('artwork');
-
       artwork.style.display = 'none';
       artwork.removeAttribute('src');
       delete artwork.dataset.cover;
-
-      document.getElementById('track').textContent =
-        'No AirPlay connection';
-
+      document.getElementById('track').textContent = 'No AirPlay connection';
       document.getElementById('artist').textContent = '';
       document.getElementById('album').textContent = '';
-
       document.getElementById('duration').textContent = 'Unknown';
       document.getElementById('source-format').textContent = 'Unknown';
       document.getElementById('output-format').textContent = 'Unknown';
+      clearProgress();
     }
 
     async function updatePlayer() {
+      if (updating) return;
+      updating = true;
       try {
-        const response = await fetch('/api/airplay');
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+        const response = await fetch('/api/airplay', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const player = await response.json();
+        // Metadata may be cached; don't let it restart a paused clock.
+        // Progress is authoritative once a timing sample has arrived.
+        if (progressPositionMs === null) {
+          playbackState = player.state;
+          setPlaybackStatus(playbackState);
         }
 
-        const player = await response.json();
-
-        // Display the playback state
-        setPlaybackStatus(player.state);
-
-        // Handle disconnection and API errors
         if (!player.connected) {
-          clearTrack();
-
-          if (player.state === 'unavailable') {
-            document.getElementById('track').textContent =
-              'AirPlay metadata unavailable';
+          // Preserve the last track, artwork and position on disconnect.
+          playbackState = player.state === 'unavailable' ? 'unavailable' : 'disconnected';
+          setPlaybackStatus(playbackState);
+          freezeProgress();
+          if (currentTrackKey === null) {
+            document.getElementById('track').textContent = 'No AirPlay connection';
           }
-
           return;
         }
 
-        // Update album artwork only when it changes
-        const artwork = document.getElementById('artwork');
+        const trackKey = JSON.stringify([
+          player.title, player.artist, player.album, player.duration_ms, player.cover_url
+        ]);
+        if (trackKey !== currentTrackKey) {
+          currentTrackKey = trackKey;
+          clearProgress();
+        }
 
+        const artwork = document.getElementById('artwork');
         if (player.cover_url) {
           if (artwork.dataset.cover !== player.cover_url) {
-            artwork.src =
-              `/api/artwork?cover=${encodeURIComponent(player.cover_url)}`;
-
+            artwork.src = `/api/artwork?cover=${encodeURIComponent(player.cover_url)}`;
             artwork.dataset.cover = player.cover_url;
           }
-
           artwork.style.display = 'block';
         } else {
           artwork.style.display = 'none';
@@ -250,41 +177,67 @@
           delete artwork.dataset.cover;
         }
 
-        // Track information
-        document.getElementById('track').textContent =
-          player.title ?? 'No track information';
+        document.getElementById('track').textContent = player.title ?? 'No track information';
+        document.getElementById('artist').textContent = player.artist ?? '';
+        document.getElementById('album').textContent = player.album ?? '';
+        document.getElementById('duration').textContent = formatDuration(player.duration_ms);
+        document.getElementById('source-format').textContent = player.source_format ?? 'Unknown';
+        document.getElementById('output-format').textContent = player.output_format ?? 'Unknown';
 
-        document.getElementById('artist').textContent =
-          player.artist ?? '';
-
-        document.getElementById('album').textContent =
-          player.album ?? '';
-
-        // Audio information
-        document.getElementById('duration').textContent =
-          formatDuration(player.duration_ms);
-
-        document.getElementById('source-format').textContent =
-          player.source_format ?? 'Unknown';
-
-        document.getElementById('output-format').textContent =
-          player.output_format ?? 'Unknown';
-
+        if (player.state === 'playing' || player.state === 'paused') {
+          try {
+            const progressResponse = await fetch('/api/progress', { cache: 'no-store' });
+            if (!progressResponse.ok) throw new Error(`HTTP ${progressResponse.status}`);
+            const progress = await progressResponse.json();
+            // Check state and duration before accepting a timing sample.
+            if (progress.available &&
+                Number(progress.duration_ms) === Number(player.duration_ms)) {
+              // Progress state is fresher than cached AirPlay metadata.
+              playbackState = progress.state;
+              setPlaybackStatus(playbackState);
+              const elapsed = Number(progress.elapsed_ms);
+              const duration = Number(progress.duration_ms);
+              if (Number.isFinite(elapsed) && Number.isFinite(duration) && duration > 0) {
+                progressPositionMs = Math.max(0, Math.min(elapsed, duration));
+                progressDurationMs = duration;
+                progressClockMs = performance.now();
+                drawProgress();
+              } else {
+                clearProgress();
+              }
+            } else {
+              // Don't keep advancing on an unavailable or mismatched sample.
+              playbackState = 'unknown';
+              setPlaybackStatus(playbackState);
+              freezeProgress();
+            }
+          } catch (error) {
+            // A failed timing request must not leave the local clock running.
+            playbackState = 'unknown';
+            setPlaybackStatus(playbackState);
+            freezeProgress();
+            console.error('Progress update failed:', error);
+          }
+        } else {
+          playbackState = player.state;
+          setPlaybackStatus(playbackState);
+          freezeProgress();
+        }
       } catch (error) {
-        setPlaybackStatus('unavailable');
-        clearTrack();
-
-        document.getElementById('track').textContent =
-          'Cannot reach Apple Music Bridge';
-
+        playbackState = 'unavailable';
+        setPlaybackStatus(playbackState);
+        freezeProgress();
+        if (currentTrackKey === null) {
+          document.getElementById('track').textContent = 'Cannot reach Apple Music Bridge';
+        }
         console.error('AirPlay update failed:', error);
+      } finally {
+        updating = false;
       }
     }
 
-    // Initial update
+    requestAnimationFrame(animateProgress);
     updatePlayer();
-
-    // Refresh every 3 seconds
     setInterval(updatePlayer, 3000);
   </script>
 </body>

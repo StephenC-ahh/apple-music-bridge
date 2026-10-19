@@ -226,3 +226,106 @@ def player():
 @app.get("/dashboard", include_in_schema=False)
 def dashboard():
     return FileResponse("static/index.html")
+
+
+def read_airplay_timing():
+    """Read Shairport Sync timing properties over SSH."""
+    script = """
+busctl --system get-property \
+  org.gnome.ShairportSync \
+  /org/gnome/ShairportSync \
+  org.gnome.ShairportSync.RemoteControl ProgressString
+
+busctl --system get-property \
+  org.gnome.ShairportSync \
+  /org/gnome/ShairportSync \
+  org.gnome.ShairportSync FramePosition
+"""
+
+    result = subprocess.run(
+        [
+            "ssh",
+            "-o", "BatchMode=yes",
+            "-o", "ConnectTimeout=3",
+            "pi@raspberrypi.local",
+            script,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=True,
+    )
+
+    values = re.findall(r's "([^"]*)"', result.stdout)
+
+    if len(values) != 2:
+        raise ValueError("Missing Shairport Sync timing properties")
+
+    progress_parts = values[0].split("/")
+    frame_parts = values[1].split("/")
+
+    if len(progress_parts) != 3 or len(frame_parts) != 2:
+        raise ValueError("Invalid Shairport Sync timing format")
+
+    start, reported_position, end = map(int, progress_parts)
+    current, playback_timestamp = map(int, frame_parts)
+
+    return start, current, end
+
+
+@app.get("/api/progress")
+def progress():
+    try:
+        start, current, end = read_airplay_timing()
+
+        if end <= start:
+            raise ValueError("Invalid track frame range")
+
+        # The current frame must belong to the reported track.
+        if not start <= current <= end:
+            return {
+                "available": False,
+                "reason": "Frame position outside track range",
+            }
+
+        total_frames = end - start
+        elapsed_frames = current - start
+        fraction = elapsed_frames / total_frames
+
+        metadata = airplay()
+
+        # moOde supplies duration as a string, e.g. "200265".
+        duration_ms = int(metadata.get("duration_ms") or 0)
+
+        # Allow progress for both playing and paused tracks.
+        # Shairport Sync freezes FramePosition when paused.
+        if (
+            not metadata.get("connected")
+            or metadata.get("state") not in ("playing", "paused")
+        ):
+            return {
+                "available": False,
+                "reason": "AirPlay is not connected",
+            }
+
+        if duration_ms <= 0:
+            return {
+                "available": False,
+                "reason": "Track duration unavailable",
+            }
+
+        elapsed_ms = round(duration_ms * fraction)
+
+        return {
+            "available": True,
+            "state": metadata["state"],
+            "elapsed_ms": elapsed_ms,
+            "duration_ms": duration_ms,
+            "percent": round(fraction * 100, 1),
+        }
+
+    except (subprocess.SubprocessError, ValueError, OSError) as exc:
+        return {
+            "available": False,
+            "reason": str(exc),
+        }
