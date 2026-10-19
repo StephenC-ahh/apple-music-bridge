@@ -1,0 +1,214 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Apple Music Bridge</title>
+
+  <style>
+    body {
+      background: #121212;
+      color: #f5f5f5;
+      font-family: system-ui, sans-serif;
+      max-width: 600px;
+      margin: 60px auto;
+      padding: 20px;
+    }
+
+    .panel {
+      background: #222;
+      border-radius: 16px;
+      padding: 24px;
+    }
+
+    h1 {
+      color: #fa5266;
+    }
+
+    h2 {
+      margin-top: 0;
+    }
+
+    .muted {
+      color: #aaa;
+    }
+
+    .value {
+      font-weight: bold;
+    }
+
+    .artwork {
+      display: none;
+      width: 100%;
+      max-width: 320px;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 12px;
+      margin: 20px auto;
+    }
+
+    .track-info {
+      text-align: center;
+    }
+
+    .track-title {
+      font-size: 1.6rem;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    .artist {
+      font-size: 1.2rem;
+      margin-bottom: 4px;
+    }
+
+    .details {
+      border-top: 1px solid #444;
+      margin-top: 24px;
+      padding-top: 12px;
+    }
+
+    .footer {
+      margin-top: 24px;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Apple Music Bridge</h1>
+
+  <div class="panel">
+    <h2>AirPlay</h2>
+
+    <p>
+      Connection:
+      <span id="connection" class="value">Loading...</span>
+    </p>
+
+    <img
+      id="artwork"
+      class="artwork"
+      alt="Album artwork"
+    >
+
+    <div class="track-info">
+      <div class="track-title" id="track">Loading...</div>
+      <div class="artist" id="artist"></div>
+      <p class="muted" id="album"></p>
+    </div>
+
+    <div class="details">
+      <p>
+        Last playback event:
+        <span id="state" class="value">Unknown</span>
+      </p>
+
+      <p>
+        Duration:
+        <span id="duration" class="value">Unknown</span>
+      </p>
+
+      <p>
+        Source:
+        <span id="source-format" class="value">Unknown</span>
+      </p>
+
+      <p>
+        Output:
+        <span id="output-format" class="value">Unknown</span>
+      </p>
+    </div>
+
+    <p class="muted footer">
+      Prototype v0.3 | moOde AirPlay metadata
+    </p>
+  </div>
+
+  <script>
+    function formatDuration(milliseconds) {
+      const value = Number(milliseconds);
+
+      if (!Number.isFinite(value) || value <= 0) {
+        return 'Unknown';
+      }
+
+      const seconds = Math.floor(value / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const remainder = seconds % 60;
+
+      return `${minutes}:${String(remainder).padStart(2, '0')}`;
+    }
+
+    async function updatePlayer() {
+      try {
+        const response = await fetch('/api/airplay');
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const player = await response.json();
+
+        // Album artwork
+        const artwork = document.getElementById('artwork');
+
+        if (player.connected && player.cover_url) {
+          if (artwork.dataset.cover !== player.cover_url) {
+            artwork.src =
+              `/api/artwork?cover=${encodeURIComponent(player.cover_url)}`;
+
+            artwork.dataset.cover = player.cover_url;
+          }
+
+          artwork.style.display = 'block';
+        } else {
+          artwork.style.display = 'none';
+          artwork.removeAttribute('src');
+          delete artwork.dataset.cover;
+        }
+
+        // Connection
+        document.getElementById('connection').textContent =
+          player.connected ? 'Metadata available' : 'Unavailable';
+
+        // Track information
+        document.getElementById('track').textContent =
+          player.title ?? 'No track information';
+
+        document.getElementById('artist').textContent =
+          player.artist ?? '';
+
+        document.getElementById('album').textContent =
+          player.album ?? '';
+
+        // Playback metadata
+        document.getElementById('state').textContent =
+          player.playstate ?? 'Unknown';
+
+        document.getElementById('duration').textContent =
+          formatDuration(player.duration_ms);
+
+        document.getElementById('source-format').textContent =
+          player.source_format ?? 'Unknown';
+
+        document.getElementById('output-format').textContent =
+          player.output_format ?? 'Unknown';
+
+      } catch (error) {
+        document.getElementById('connection').textContent =
+          'API unavailable';
+
+        console.error('Failed to retrieve AirPlay metadata:', error);
+      }
+    }
+
+    // Initial update
+    updatePlayer();
+
+    // Refresh every 3 seconds
+    setInterval(updatePlayer, 3000);
+  </script>
+</body>
+</html>
