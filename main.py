@@ -11,9 +11,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from mpd import MPDClient
+from pathlib import Path
 
 
 VERSION = "0.8.0"
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 MPD_HOST = "raspberrypi.local"
 MPD_PORT = 6600
@@ -290,7 +293,7 @@ def player():
 
 @app.get("/dashboard", include_in_schema=False)
 def dashboard():
-    return FileResponse("static/index.html")
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 def read_airplay_timing():
