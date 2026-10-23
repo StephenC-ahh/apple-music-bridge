@@ -228,6 +228,62 @@ Run `systemctl --user daemon-reload` before restarting only when the service uni
 | `/api/player` | MPD status |
 | `/docs` | Interactive API documentation |
 
+## Tests
+
+The tests use Python's built-in `unittest` framework. No additional test dependencies are required.
+
+Run from the project directory:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -v
+```
+
+### Coverage
+
+| File | Scenarios |
+| --- | --- |
+| `tests/test_config.py` | Default MPD port, valid ports, non-numeric values and out-of-range ports |
+| `tests/test_airplay.py` | Playing, paused, unknown playback events, empty metadata, invalid JSON and SSH timeouts |
+
+Configuration tests launch separate Python processes with different environment variables.
+
+AirPlay tests mock SSH responses, so they do not require the Pi or interrupt playback.
+
+The current suite contains nine tests. A successful run ends with:
+
+```text
+Ran 9 tests in ...
+
+OK
+```
+
+Translation: we're all good, Dave.
+
+These tests check backend logic. They do not verify browser behaviour or the live connection to moOde.
+
+### Verify application changes
+
+After changing application code, run the tests before restarting:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -v &&
+systemctl --user restart apple-music-bridge.service &&
+systemctl --user status apple-music-bridge.service --no-pager
+```
+
+The `&&` operators prevent subsequent commands from running if an earlier command fails.
+
+Once the service has started, check live metadata while AirPlay is playing:
+
+```bash
+curl --fail --silent --show-error http://127.0.0.1:8765/api/airplay |
+  .venv/bin/python -m json.tool
+```
+
+Check for `"connected": true` and the current track, then open `/dashboard` to verify the display.
+
+Changes to test files alone do not require a service restart.
+
 ## Troubleshooting
 
 ### Service fails to start
