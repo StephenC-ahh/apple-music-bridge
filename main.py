@@ -9,6 +9,7 @@ from threading import Event, Thread
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
 from mpd import MPDClient
 
 
@@ -106,6 +107,9 @@ app = FastAPI(
     version=VERSION,
     lifespan=lifespan,
 )
+
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/")
@@ -378,3 +382,4 @@ def progress():
             "available": False,
             "reason": str(exc),
         }
+
