@@ -20,7 +20,15 @@ VERSION = "0.8.0"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 MPD_HOST = os.getenv("MPD_HOST", "raspberrypi.local")
-MPD_PORT = int(os.getenv("MPD_PORT", "6600"))
+try:
+    MPD_PORT = int(os.getenv("MPD_PORT", "6600"))
+except ValueError:
+    raise ValueError(
+        "MPD_PORT must be an integer between 1 and 65535"
+    ) from None
+
+if not 1 <= MPD_PORT <= 65535:
+    raise ValueError("MPD_PORT must be between 1 and 65535")
 
 PI_SSH_HOST = os.getenv("PI_SSH_HOST", "pi@raspberrypi.local")
 
