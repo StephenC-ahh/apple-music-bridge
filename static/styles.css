@@ -409,3 +409,108 @@
 @media (prefers-reduced-motion: reduce) {
   .meter-fill { transition: none; }
 }
+/* Meters stay beneath the player on smaller screens. */
+.dsp-panel {
+  order: 1;
+  margin: 18px auto 0;
+}
+
+/* Vertical stereo meters on wide screens. */
+@media (min-width: 1280px) {
+  .dsp-panel {
+    position: fixed;
+    left: 32px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 190px;
+    margin: 0;
+
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .dsp-heading,
+  .dsp-footer {
+    grid-column: 1 / -1;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .meter-scale {
+    display: none;
+  }
+
+  .meter-row {
+    position: relative;
+    display: block;
+    height: 270px;
+    margin: 0;
+  }
+
+  .meter-channel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    text-align: center;
+  }
+
+  .meter-value {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    text-align: center;
+  }
+
+  .level-meter {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 220px;
+    height: 14px;
+    transform: translate(-50%, -50%) rotate(-90deg);
+  }
+
+  .track-info {
+    max-width: 560px;
+  }
+
+  .artwork-wrap {
+    width: min(
+      100%,
+      380px,
+      max(180px, calc(100dvh - 370px))
+    );
+  }
+}
+@media (min-width: 1280px) {
+  .details {
+    position: fixed;
+    right: 32px;
+    top: 50%;
+    transform: translateY(-50%);
+
+    width: 190px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+
+    padding: 0;
+    border: 0;
+  }
+
+  .detail {
+    padding: 12px 14px;
+  }
+
+  .detail-label {
+    margin-bottom: 6px;
+  }
+
+  .value {
+    text-align: left;
+  }
+}
