@@ -319,6 +319,30 @@
       }
     }
 
+    let updatingOutput = false;
+
+    async function updateOutputDevice() {
+      if (updatingOutput) return;
+      updatingOutput = true;
+      const label = document.getElementById('output-device');
+      try {
+        const response = await fetch('/api/output', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const output = await response.json();
+        label.textContent = output.state === 'active' && output.devices.length
+          ? output.devices.join(', ')
+          : output.state === 'idle' ? 'No active output' : 'Unavailable';
+      } catch (error) {
+        label.textContent = 'Unavailable';
+        console.error('Output device update failed:', error);
+      } finally {
+        updatingOutput = false;
+      }
+    }
+
+    updateOutputDevice();
+    setInterval(updateOutputDevice, 5000);
+
     requestAnimationFrame(animateProgress);
     updatePlayer();
     setInterval(updatePlayer, 3000);
@@ -346,4 +370,5 @@
       );
       fullscreenButton.title = active ? 'Exit full screen' : 'Enter full screen';
     });
+
 

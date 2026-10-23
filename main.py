@@ -15,7 +15,7 @@ from mpd import MPDClient
 from pathlib import Path
 
 
-VERSION = "0.9.0"
+VERSION = "0.10.0"
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -42,6 +42,40 @@ airplay_cache = {
     "data": None,
     "timestamp": 0,
 }
+
+output_cache = {"data": None, "timestamp": 0}
+
+
+def read_output_devices():
+    """Inspect open ALSA playback devices on the Pi without changing them."""
+    script = r'''
+import json
+import re
+from pathlib import Path
+
+cards = Path("/proc/asound/cards").read_text()
+names = dict(re.findall(r"^\s*(\d+)\s+\[[^\]]+\]\s*:\s*.*? - (.+)$", cards, re.M))
+devices = []
+for path in sorted(Path("/proc/asound").glob("card*/pcm*p/sub*/hw_params")):
+    try:
+        params = path.read_text().strip()
+    except FileNotFoundError:
+        continue  # A USB device may disappear during the scan.
+    if not params or params == "closed":
+        continue
+    card = path.parts[-4].removeprefix("card")
+    name = names.get(card)
+    if name and name not in devices:
+        devices.append(name)
+print(json.dumps(devices))
+'''
+    result = run_pi_command("python3 - <<'PY'\n" + script + "\nPY")
+    devices = json.loads(result.stdout)
+    if not isinstance(devices, list) or not all(
+        isinstance(name, str) and name.strip() for name in devices
+    ):
+        raise ValueError("Invalid ALSA output device data")
+    return devices
 
 
 def run_pi_command(command, *, text=True):
@@ -208,6 +242,25 @@ def airplay():
             "error": str(exc),
             "source": "moode-airplay",
         }
+
+
+@app.get("/api/output")
+def output_device():
+    now = time.monotonic()
+    if output_cache["data"] is not None and (
+        now - output_cache["timestamp"] < AIRPLAY_CACHE_TTL
+    ):
+        return output_cache["data"]
+
+    try:
+        devices = read_output_devices()
+        data = {"state": "active" if devices else "idle", "devices": devices}
+    except (subprocess.SubprocessError, ValueError, OSError) as exc:
+        logger.warning("Could not read ALSA output devices: %s", exc)
+        return {"state": "unavailable", "devices": []}
+
+    output_cache.update(data=data, timestamp=time.monotonic())
+    return data
 
 
 @app.get("/api/artwork")
@@ -397,5 +450,6 @@ def progress():
             "available": False,
             "reason": str(exc),
         }
+
 
 

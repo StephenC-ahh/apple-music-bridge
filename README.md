@@ -11,6 +11,7 @@ FastAPI reads metadata and artwork from moOde over SSH, while Shairport Sync sup
 - Playing and paused status
 - Track duration and playback progress
 - Source and output audio formats
+- Active DAC / output device name, detected from ALSA
 - Fullscreen display
 - Retains the last track information during temporary connection failures
 - Runs in the background as a systemd user service
@@ -228,6 +229,7 @@ Run `systemctl --user daemon-reload` before restarting only when the service uni
 | `/dashboard` | Now Playing dashboard |
 | `/api/airplay` | AirPlay metadata and playback state |
 | `/api/artwork` | Current album artwork |
+| `/api/output` | Open ALSA playback device names |
 | `/api/progress` | Playback timing and progress |
 | `/api/player` | MPD status |
 | `/docs` | Interactive API documentation |
@@ -265,15 +267,16 @@ Check the repository's Actions tab for results.
 | `tests/test_cache.py` | Cached reads, expiry and retry after a failed read |
 | `tests/test_progress.py` | Progress boundaries, wrapping frame counters, paused state, invalid timing and duration, and D-Bus parsing |
 | `tests/test_artwork.py` | JPEG retrieval, missing artwork, unavailable metadata, unsafe paths and SSH failures |
+| `tests/test_output.py` | DAC discovery across card numbers, idle and multiple outputs, invalid responses, read failure, caching and expiry |
 
 Configuration tests launch separate Python processes with different environment variables.
 
 AirPlay tests mock SSH responses, so they do not require the Pi or interrupt playback.
 
-The current suite contains 28 tests (with additional cases exercised through subtests). A successful run ends with:
+The current suite contains 37 tests (with additional cases exercised through subtests). A successful run ends with:
 
 ```text
-Ran 28 tests in ...
+Ran 37 tests in ...
 
 OK
 ```
@@ -353,3 +356,32 @@ This is a personal prototype for a local setup.
 - The backend does not provide playback-control endpoints.
 - A populated metadata file does not guarantee that an AirPlay session is still active.
 - The server binds to localhost in the examples above and has no application authentication.
+
+
+
+## DAC / output device detection
+
+The dashboard requests `/api/output` every five seconds. The backend uses SSH
+to run a read-only Python 3 scan of `/proc/asound/cards` and playback
+`hw_params` files on the Pi. Successful results are cached for five seconds.
+No additional Python packages are needed on the Pi.
+
+The scanner reports names for open ALSA playback devices without assuming
+that the DAC is card 0. Multiple open outputs are listed together.
+An open device may be paused or held open by another process: this identifies
+the host's open outputs, not proof that a specific AirPlay stream owns them.
+
+When all outputs are closed the dashboard shows `No active output`. A failed
+read shows `Unavailable` without interrupting track metadata or progress.
+
+Verify while music is playing:
+
+```bash
+curl --fail --silent --show-error http://127.0.0.1:8765/api/output
+```
+
+Example response:
+
+```json
+{"state": "active", "devices": ["FiiO K11"]}
+```

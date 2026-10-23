@@ -223,7 +223,7 @@
     .details {
       width: min(100%, 560px);
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 12px;
       padding-top: 24px;
       border-top: 1px solid #ffffff30;
@@ -364,5 +364,6 @@
     margin-top: 12px;
   }
 }
+
 
 
