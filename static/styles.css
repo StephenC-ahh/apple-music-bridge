@@ -367,3 +367,45 @@
 
 
 
+
+
+/* Live output levels: RMS bars with peak markers. */
+.dsp-panel {
+  width: min(100%, 560px);
+  margin: 0 auto 14px;
+  padding: 10px 12px;
+  border: 1px solid #ffffff19;
+  border-radius: 12px;
+  background: #ffffff0b;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+.dsp-heading, .dsp-footer, .meter-scale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.dsp-heading { margin-bottom: 5px; color: #eee7f1; }
+.dsp-unit, #dsp-status, .dsp-footer, .meter-scale { color: #c6becb; }
+.dsp-unit { font-size: 0.65rem; }
+.meter-scale { margin: 0 45px 3px 19px; font-size: 0.6rem; }
+.meter-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+.meter-channel { width: 11px; }
+.meter-value { width: 37px; text-align: right; font-size: 0.65rem; }
+.level-meter { position: relative; flex: 1; height: 8px; background: #ffffff16; border-radius: 3px; overflow: hidden; }
+.meter-fill {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, #69e7a3 0%, #69e7a3 75%, #ffd07b 90%, #ff6684 100%);
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 180ms linear;
+}
+.meter-peak { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; transform: translateX(-2px); display: none; }
+.dsp-footer { margin-top: 6px; font-size: 0.65rem; }
+.has-clips { color: #ffd07b; }
+@media (min-width: 541px) {
+  .artwork-wrap { width: min(100%, 380px, max(140px, calc(100dvh - 485px))); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .meter-fill { transition: none; }
+}

@@ -86,6 +86,36 @@
         </div>
       </div>
 
+      <section id="dsp-panel" class="dsp-panel" aria-label="CamillaDSP output levels">
+        <div class="dsp-heading">
+          <span>Output levels <span class="dsp-unit">dBFS</span></span>
+          <span id="dsp-status" role="status">DSP connecting...</span>
+        </div>
+        <div class="meter-scale" aria-hidden="true">
+          <span>−60</span><span>−30</span><span>0</span>
+        </div>
+        <div class="meter-row">
+          <span class="meter-channel">L</span>
+          <div id="meter-left" class="level-meter" role="meter" aria-label="Left output RMS level"
+               aria-valuemin="-60" aria-valuemax="0" aria-valuenow="-60">
+            <div class="meter-fill"></div><div class="meter-peak"></div>
+          </div>
+          <span id="meter-left-value" class="meter-value">—</span>
+        </div>
+        <div class="meter-row">
+          <span class="meter-channel">R</span>
+          <div id="meter-right" class="level-meter" role="meter" aria-label="Right output RMS level"
+               aria-valuemin="-60" aria-valuemax="0" aria-valuenow="-60">
+            <div class="meter-fill"></div><div class="meter-peak"></div>
+          </div>
+          <span id="meter-right-value" class="meter-value">—</span>
+        </div>
+        <div class="dsp-footer">
+          <span id="dsp-load">DSP load: —</span>
+          <span id="dsp-clips">Clipped samples: —</span>
+        </div>
+      </section>
+
       <div class="details">
         <div class="detail">
           <span class="detail-label">DAC / Device</span>
@@ -109,13 +139,15 @@
     </section>
 
     <p class="footer">
-      Prototype v0.10.0 | moOde AirPlay metadata | Read-only
+      Prototype v0.11.0 | moOde AirPlay metadata | Read-only
     </p>
   </main>
 
   <script src="/static/player.js" defer></script>
+  <script src="/static/meters.js" defer></script>
 </body>
 </html>
+
 
 
 

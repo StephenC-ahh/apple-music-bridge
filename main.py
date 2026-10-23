@@ -13,9 +13,10 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from mpd import MPDClient
 from pathlib import Path
+from dsp import DspMonitor
 
 
-VERSION = "0.10.0"
+VERSION = "0.11.0"
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -31,6 +32,8 @@ if not 1 <= MPD_PORT <= 65535:
     raise ValueError("MPD_PORT must be between 1 and 65535")
 
 PI_SSH_HOST = os.getenv("PI_SSH_HOST", "pi@raspberrypi.local")
+CAMILLA_WS_URL = os.getenv("CAMILLA_WS_URL", f"ws://{MPD_HOST}:1234")
+dsp_monitor = DspMonitor(CAMILLA_WS_URL)
 
 AIRPLAY_CACHE_TTL = 5
 FRAME_UPDATE_INTERVAL = 1.0
@@ -141,11 +144,20 @@ async def lifespan(app):
     )
     worker.start()
 
+    dsp_worker = Thread(
+        target=dsp_monitor.run,
+        args=(stop_event,),
+        name="camilladsp-meters",
+        daemon=True,
+    )
+    dsp_worker.start()
+
     try:
         yield
     finally:
         stop_event.set()
         worker.join(timeout=6)
+        dsp_worker.join(timeout=6)
 
 
 app = FastAPI(
@@ -174,6 +186,11 @@ def get_playback_state(playstate):
     if playstate == "Pause":
         return "paused"
     return "unknown"
+
+
+@app.get("/api/dsp")
+def dsp_status():
+    return dsp_monitor.snapshot()
 
 
 @app.get("/api/airplay")
@@ -450,6 +467,7 @@ def progress():
             "available": False,
             "reason": str(exc),
         }
+
 
 
 

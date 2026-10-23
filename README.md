@@ -12,6 +12,7 @@ FastAPI reads metadata and artwork from moOde over SSH, while Shairport Sync sup
 - Track duration and playback progress
 - Source and output audio formats
 - Active DAC / output device name, detected from ALSA
+- Live stereo output meters, DSP status, processing load and clipping count from CamillaDSP
 - Fullscreen display
 - Retains the last track information during temporary connection failures
 - Runs in the background as a systemd user service
@@ -33,19 +34,23 @@ The backend requests one-second frame-position updates from Shairport Sync and r
 ```text
 apple-music-bridge/
 ├── main.py
+├── dsp.py
 ├── requirements.txt
 ├── tests/
 ├── .github/workflows/tests.yml
 └── static/
     ├── index.html
     ├── styles.css
-    └── player.js
+    ├── player.js
+    └── meters.js
 ```
 
 - `main.py`: FastAPI routes, SSH access, metadata and timing
 - `static/index.html`: dashboard structure
 - `static/styles.css`: dashboard styling
 - `static/player.js`: API requests, display updates and progress animation
+- `dsp.py`: persistent read-only CamillaDSP connection and cached readings
+- `static/meters.js`: output-level meters and DSP status
 
 ## Requirements
 
@@ -83,6 +88,7 @@ Connection settings can be supplied through environment variables. If omitted, t
 | `MPD_HOST` | `raspberrypi.local` | MPD hostname |
 | `MPD_PORT` | `6600` | MPD port |
 | `PI_SSH_HOST` | `pi@raspberrypi.local` | SSH username and hostname |
+| `CAMILLA_WS_URL` | `ws://<MPD_HOST>:1234` | CamillaDSP WebSocket address; uses the resolved MPD hostname by default |
 
 For a systemd user service, add overrides under `[Service]` in
 `~/.config/systemd/user/apple-music-bridge.service`:
@@ -229,6 +235,7 @@ Run `systemctl --user daemon-reload` before restarting only when the service uni
 | `/dashboard` | Now Playing dashboard |
 | `/api/airplay` | AirPlay metadata and playback state |
 | `/api/artwork` | Current album artwork |
+| `/api/dsp` | Cached CamillaDSP state, stereo levels, clipping count and processing load |
 | `/api/output` | Open ALSA playback device names |
 | `/api/progress` | Playback timing and progress |
 | `/api/player` | MPD status |
@@ -256,6 +263,15 @@ Tests use mocked SSH responses, so the runner does not need access to the Pi.
 
 Workflow configuration: `.github/workflows/tests.yml`
 
+The workflow also uses Node.js 24 to run five meter-display tests:
+
+```bash
+node --test tests/test_meters.cjs
+```
+
+No npm installation is required. Node.js is used for testing the browser code;
+the application backend remains Python.
+
 Check the repository's Actions tab for results.
 
 ### Coverage
@@ -268,15 +284,16 @@ Check the repository's Actions tab for results.
 | `tests/test_progress.py` | Progress boundaries, wrapping frame counters, paused state, invalid timing and duration, and D-Bus parsing |
 | `tests/test_artwork.py` | JPEG retrieval, missing artwork, unavailable metadata, unsafe paths and SSH failures |
 | `tests/test_output.py` | DAC discovery across card numbers, idle and multiple outputs, invalid responses, read failure, caching and expiry |
+| `tests/test_dsp.py` | Read-only protocol, stereo levels, silence, invalid responses, stale data, reconnection and local WebSocket transport |
 
 Configuration tests launch separate Python processes with different environment variables.
 
 AirPlay tests mock SSH responses, so they do not require the Pi or interrupt playback.
 
-The current suite contains 37 tests (with additional cases exercised through subtests). A successful run ends with:
+The current Python suite contains 50 tests (with additional cases exercised through subtests). A successful run ends with:
 
 ```text
-Ran 37 tests in ...
+Ran 50 tests in ...
 
 OK
 ```
@@ -385,3 +402,55 @@ Example response:
 ```json
 {"state": "active", "devices": ["FiiO K11"]}
 ```
+
+
+
+## Live CamillaDSP meters
+
+Requires CamillaDSP to be enabled in moOde, with its WebSocket server reachable
+from the bridge host. No additional packages are installed on the Pi.
+The bridge uses one persistent connection shared by all dashboard requests.
+It sends only `GetState`, `GetSignalLevelsSinceLast`, `GetClippedSamples` and
+`GetProcessingLoad`; it does not change EQ, volume or DSP configuration.
+
+Readings are collected about five times per second. The browser displays
+left/right output RMS bars and white peak markers on a -60 to 0 dBFS scale.
+These are digital signal levels, not room loudness or a frequency spectrum.
+Clipped samples is the cumulative CamillaDSP count since configuration load,
+not a count of new clips in the most recent update.
+
+Non-running DSP states clear the levels. Connection failures or readings
+older than two seconds show `DSP off / unavailable`; this does not distinguish
+a disabled DSP from a network failure. The bridge retries the connection
+after three seconds and resumes metering when readings return.
+
+The readings belong to the active CamillaDSP pipeline, which may be processing
+a source other than AirPlay. Track metadata and progress remain independent.
+
+After applying this update, install the new pinned runtime dependency before
+restarting the bridge:
+
+```bash
+.venv/bin/python -m pip install -r requirements.txt &&
+.venv/bin/python -m unittest discover -s tests -v &&
+systemctl --user restart apple-music-bridge.service &&
+systemctl --user status apple-music-bridge.service --no-pager
+```
+
+Verify live readings while CamillaDSP is enabled and music is playing:
+
+```bash
+curl --fail --silent --show-error http://127.0.0.1:8765/api/dsp |
+  .venv/bin/python -m json.tool
+```
+
+Expect `available: true`, state `Running`, and changing output levels.
+Hard-refresh `/dashboard` with Ctrl+Shift+R to load the new scripts and styles.
+
+To use another address, set an override under the user service's `[Service]`:
+
+```ini
+Environment=CAMILLA_WS_URL=ws://raspberrypi.local:1234
+```
+
+After editing the unit, run `systemctl --user daemon-reload` before restarting.
