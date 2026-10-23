@@ -67,7 +67,7 @@ cd apple-music-bridge
 python3 -m venv .venv
 source .venv/bin/activate
 
-python -m pip install fastapi uvicorn python-mpd2
+python -m pip install -r requirements.txt
 ```
 
 ## Configuration
