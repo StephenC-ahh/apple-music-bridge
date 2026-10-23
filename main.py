@@ -6,6 +6,7 @@ import subprocess
 import time
 from contextlib import asynccontextmanager
 from threading import Event, Thread
+import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, Response
@@ -18,10 +19,10 @@ VERSION = "0.8.0"
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
-MPD_HOST = "raspberrypi.local"
-MPD_PORT = 6600
+MPD_HOST = os.getenv("MPD_HOST", "raspberrypi.local")
+MPD_PORT = int(os.getenv("MPD_PORT", "6600"))
 
-PI_SSH_HOST = "pi@raspberrypi.local"
+PI_SSH_HOST = os.getenv("PI_SSH_HOST", "pi@raspberrypi.local")
 
 AIRPLAY_CACHE_TTL = 5
 FRAME_UPDATE_INTERVAL = 1.0
