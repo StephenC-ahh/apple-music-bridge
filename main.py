@@ -121,7 +121,7 @@ app = FastAPI(
 )
 
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.get("/")
