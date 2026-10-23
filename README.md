@@ -72,26 +72,41 @@ python -m pip install -r requirements.txt
 
 ## Configuration
 
-Connection settings are currently defined in `main.py`:
+Connection settings can be supplied through environment variables. If omitted, the application uses these defaults:
 
-```python
-MPD_HOST = "raspberrypi.local"
-MPD_PORT = 6600
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `MPD_HOST` | `raspberrypi.local` | MPD hostname |
+| `MPD_PORT` | `6600` | MPD port |
+| `PI_SSH_HOST` | `pi@raspberrypi.local` | SSH username and hostname |
 
-PI_SSH_HOST = "pi@raspberrypi.local"
+For a systemd user service, add overrides under `[Service]` in
+`~/.config/systemd/user/apple-music-bridge.service`:
+
+```ini
+Environment=MPD_HOST=raspberrypi.local
+Environment=MPD_PORT=6600
+Environment=PI_SSH_HOST=pi@raspberrypi.local
 ```
 
-Change these if your Pi uses a different hostname or username.
+These entries are optional when using the defaults. `MPD_PORT` must be a valid integer.
 
-Confirm SSH works without an interactive password prompt:
+After changing the service unit, reload systemd, restart and check status:
 
 ```bash
-ssh -o BatchMode=yes pi@raspberrypi.local \
-  'cat /var/local/www/aplmeta.json'
+systemctl --user daemon-reload &&
+systemctl --user restart apple-music-bridge.service &&
+systemctl --user status apple-music-bridge.service --no-pager
 ```
 
-If needed, set up an SSH key and connect manually once to verify the Pi's host key before starting the service.
+Confirm metadata retrieval while AirPlay is playing:
 
+```bash
+curl --fail --silent --show-error http://127.0.0.1:8765/api/airplay |
+  .venv/bin/python -m json.tool
+```
+
+Check for `"connected": true` and the current track information.
 ## Run manually
 
 From the project directory:
