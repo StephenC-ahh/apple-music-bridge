@@ -237,6 +237,20 @@ Run from the project directory:
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
 ```
+### Continuous integration
+
+GitHub Actions runs the test suite on every push and pull request using
+Ubuntu and Python 3.14.
+
+The workflow installs dependencies from `requirements.txt` and runs:
+
+`python -m unittest discover -s tests -v`
+
+Tests use mocked SSH responses, so the runner does not need access to the Pi.
+
+Workflow configuration: `.github/workflows/tests.yml`
+
+Check the repository's Actions tab for results.
 
 ### Coverage
 
