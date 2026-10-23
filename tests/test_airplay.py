@@ -55,6 +55,18 @@ class TestAirPlayMetadata(unittest.TestCase):
 
         self.assertEqual(player["state"], "unknown")
 
+    def test_non_object_metadata_is_unavailable(self):
+        for metadata in ([], None, "track", 42, True):
+            with self.subTest(metadata=metadata):
+                player = self.read_metadata(metadata)
+
+                self.assertFalse(player["connected"])
+                self.assertEqual(player["state"], "unavailable")
+                self.assertEqual(
+                    player["error"],
+                    "AirPlay metadata must be a JSON object",
+                )
+
     def test_empty_metadata_is_disconnected(self):
         result = subprocess.CompletedProcess(
             args=["ssh"],

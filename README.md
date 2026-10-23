@@ -32,6 +32,9 @@ The backend requests one-second frame-position updates from Shairport Sync and r
 ```text
 apple-music-bridge/
 ├── main.py
+├── requirements.txt
+├── tests/
+├── .github/workflows/tests.yml
 └── static/
     ├── index.html
     ├── styles.css
@@ -89,7 +92,7 @@ Environment=MPD_PORT=6600
 Environment=PI_SSH_HOST=pi@raspberrypi.local
 ```
 
-These entries are optional when using the defaults. `MPD_PORT` must be a valid integer.
+These entries are optional when using the defaults. `MPD_PORT` must be an integer between 1 and 65535; invalid values prevent startup with a clear error.
 
 After changing the service unit, reload systemd, restart and check status:
 
@@ -107,6 +110,7 @@ curl --fail --silent --show-error http://127.0.0.1:8765/api/airplay |
 ```
 
 Check for `"connected": true` and the current track information.
+
 ## Run manually
 
 From the project directory:
@@ -121,7 +125,7 @@ Open:
 http://127.0.0.1:8765/dashboard
 ```
 
-The application must run with the project directory as its working directory so it can locate the static files.
+Static files are resolved relative to `main.py`. The commands above run from the project directory so Python can import `main` and locate the virtual environment.
 
 ## Run with systemd
 
@@ -257,16 +261,19 @@ Check the repository's Actions tab for results.
 | File | Scenarios |
 | --- | --- |
 | `tests/test_config.py` | Default MPD port, valid ports, non-numeric values and out-of-range ports |
-| `tests/test_airplay.py` | Playing, paused, unknown playback events, empty metadata, invalid JSON and SSH timeouts |
+| `tests/test_airplay.py` | Playing, paused, unknown playback events, empty metadata, invalid JSON, unexpected JSON shapes and SSH timeouts |
+| `tests/test_cache.py` | Cached reads, expiry and retry after a failed read |
+| `tests/test_progress.py` | Progress boundaries, wrapping frame counters, paused state, invalid timing and duration, and D-Bus parsing |
+| `tests/test_artwork.py` | JPEG retrieval, missing artwork, unavailable metadata, unsafe paths and SSH failures |
 
 Configuration tests launch separate Python processes with different environment variables.
 
 AirPlay tests mock SSH responses, so they do not require the Pi or interrupt playback.
 
-The current suite contains nine tests. A successful run ends with:
+The current suite contains 28 tests (with additional cases exercised through subtests). A successful run ends with:
 
 ```text
-Ran 9 tests in ...
+Ran 28 tests in ...
 
 OK
 ```
@@ -340,7 +347,7 @@ Progress also requires Shairport Sync's D-Bus timing properties. Check the servi
 
 This is a personal prototype for a local setup.
 
-- Connection settings are currently hardcoded.
+- Connection settings are configurable through environment variables, with defaults for the local Pi.
 - AirPlay metadata is cached for five seconds.
 - The dashboard polls every three seconds.
 - The backend does not provide playback-control endpoints.

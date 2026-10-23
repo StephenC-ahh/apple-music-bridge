@@ -15,7 +15,7 @@ from mpd import MPDClient
 from pathlib import Path
 
 
-VERSION = "0.8.0"
+VERSION = "0.9.0"
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -174,6 +174,9 @@ def airplay():
             }
         else:
             metadata = json.loads(result.stdout)
+            if not isinstance(metadata, dict):
+                raise ValueError("AirPlay metadata must be a JSON object")
+
             playstate = metadata.get("playstate")
 
             data = {
@@ -394,4 +397,5 @@ def progress():
             "available": False,
             "reason": str(exc),
         }
+
 
