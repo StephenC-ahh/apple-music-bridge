@@ -1,3 +1,13 @@
+// Keep the original tab icon as a fallback when album artwork is absent.
+const favicon = document.querySelector('link[rel~="icon"]');
+const defaultFavicon = favicon?.href;
+
+function updateFavicon(artworkUrl) {
+  if (favicon) {
+    favicon.href = artworkUrl || defaultFavicon;
+  }
+}
+
     function formatDuration(milliseconds) {
       const value = Number(milliseconds);
 
@@ -111,6 +121,7 @@
     }
 
     function clearTrack() {
+      updateFavicon(null);
       const artwork = document.getElementById('artwork');
 
       artwork.style.display = 'none';
@@ -196,6 +207,7 @@
               `/api/artwork?cover=${encodeURIComponent(player.cover_url)}`;
 
             artwork.dataset.cover = player.cover_url;
+            updateFavicon(artwork.src);
 
             document.getElementById('backdrop').style.backgroundImage =
               `url("${artwork.src}")`;
@@ -203,6 +215,7 @@
 
           artwork.style.display = 'block';
         } else {
+          updateFavicon(null);
           artwork.style.display = 'none';
           artwork.removeAttribute('src');
           delete artwork.dataset.cover;
@@ -370,5 +383,6 @@
       );
       fullscreenButton.title = active ? 'Exit full screen' : 'Enter full screen';
     });
+
 
 
